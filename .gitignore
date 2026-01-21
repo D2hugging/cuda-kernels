@@ -1,0 +1,58 @@
+# build
+[Bb]uild/
+cmake-build-*/
+[Oo]ut/
+bin/
+lib/
+dist/
+
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# compiled object files
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exp
+*.exe
+
+*.ptx
+*.cubin
+*.fatbin
+*.d
+
+# ncu profile results
+*.ncu-rep
+*.nsys-rep
+*.qdrep
+*.sqlite
+*.qmsiterp
+# custom benchmark results
+*.csv
+*.json
+*.log
+
+# IDEs
+.vscode/
+.idea/
+.vs/
+*.user
+*.suo
+*.sln
+*.swp
+
+# OS 
+.DS_Store
+Thumbs.db
+
+# temporary files
+tmp/
+temp/
