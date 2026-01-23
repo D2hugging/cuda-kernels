@@ -5,10 +5,14 @@
 
 #define BLOCK_SIZE 256
 
+// one staged
+// stage 1: grid-stride loop + atomic add -> result
+__global__ void dotProductStage1NaiveKernel(const float *a, const float *b,
+                                            float *result, size_t n);
 // two staged
 // stage 1: grid-stride loop + atomic add -> block partial sum
-__global__ void dotProductAtomicKernel(const float *a, const float *b,
-                                       float *partialSum, size_t n);
+__global__ void dotProductStage2NaiveKernel(const float *a, const float *b,
+                                            float *partialSum, size_t n);
 
 // stage 1: grid-stride loop + shared memory + reduction -> block
 __global__ void dotProductSharedMemKernel(const float *a, const float *b,

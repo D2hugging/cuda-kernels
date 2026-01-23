@@ -3,9 +3,23 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 
+__global__ void dotProductStage1NaiveKernel(const float *a, const float *b,
+                                            float *result, size_t n) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int stride = gridDim.x * blockDim.x;
+
+  float sum = 0.0f;
+  // grid-stride loop
+  for (int i = idx; i < n; i += stride) {
+    sum += a[i] * b[i];
+  }
+
+  atomicAdd(result, sum);
+}
+
 // atomic add
-__global__ void dotProductAtomicKernel(const float *a, const float *b,
-                                       float *partialSum, size_t n) {
+__global__ void dotProductStage2NaiveKernel(const float *a, const float *b,
+                                            float *partialSum, size_t n) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int stride = gridDim.x * blockDim.x;
 

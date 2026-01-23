@@ -36,8 +36,8 @@ int main() {
                                  256 * 1024 * 1024, 512 * 1024 * 1024,
                                  768 * 1024 * 1024, 1024 * 1024 * 1024};
 
-  // 10 warmups，100 samples
-  Benchmarker bench(10, 100);
+  // warmups 10，samples 5
+  Benchmarker bench(10, 5);
 
   for (size_t n : n_sizes) {
     std::cout << "\n>>> Testing N = " << n << " ("
@@ -68,12 +68,28 @@ int main() {
     // label
     std::string label = "N_" + std::to_string(n / 1024) + "K";
 
+    // one staged naive implementation
     bench.run(
-        "Atomic_" + label, n,
+        "Stage1Naive_" + label, n,
+        [&]() {
+          cudaMemsetAsync(d_res, 0, sizeof(float));
+          dotProductStage1NaiveKernel<<<numBlocks, BLOCK_SIZE>>>(d_a, d_b,
+                                                                 d_res, n);
+        },
+        [&]() {
+          // verify
+          float h_res;
+          cudaMemcpy(&h_res, d_res, sizeof(float), cudaMemcpyDeviceToHost);
+          verifyDotProduct(h_res, cpu_res);
+        });
+
+    // two staged naive implementation
+    bench.run(
+        "Stage2Naive_" + label, n,
         [&]() {
           cudaMemsetAsync(d_partialSum, 0, numBlocks * sizeof(float), 0);
-          dotProductAtomicKernel<<<numBlocks, BLOCK_SIZE>>>(d_a, d_b,
-                                                            d_partialSum, n);
+          dotProductStage2NaiveKernel<<<numBlocks, BLOCK_SIZE>>>(
+              d_a, d_b, d_partialSum, n);
           partialSumReductionKernel<<<1, BLOCK_SIZE>>>(d_partialSum, d_res,
                                                        numBlocks);
         },
