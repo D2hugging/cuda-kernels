@@ -8,7 +8,10 @@ set(COMMON_SOURCES
 
 set(COMMON_HEADERS
     include/benchmark.h
+    include/cuda_config.h
     include/cuda_utils.h
+    include/device_utils.cuh
+    include/test_harness.h
     include/test_utils.h
 )
 
@@ -17,7 +20,7 @@ add_library(cuda_common STATIC ${COMMON_SOURCES} ${COMMON_HEADERS})
 
 target_include_directories(cuda_common PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $
+    $<INSTALL_INTERFACE:include>
 )
 
 # Set CUDA properties
@@ -26,9 +29,5 @@ set_target_properties(cuda_common PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 
-target_compile_options(cuda_common PRIVATE
-    $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:
-        --use_fast_math;
-        -Xcompiler=-Wall
-    >
-)
+# Apply standard CUDA compile options
+target_cuda_compile_options(cuda_common)

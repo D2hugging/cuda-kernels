@@ -1,4 +1,5 @@
 #include "cuda_utils.h"
+#include "device_utils.cuh"
 #include "dot_product.cuh"
 #include <cstddef>
 #include <cuda_runtime.h>
@@ -43,18 +44,12 @@ __global__ void dotProductSharedMemKernel(const float *a, const float *b,
   for (int i = idx; i < n; i += stride) {
     sum += a[i] * b[i];
   }
-  // write to shared memory
+  // write to shared memory and perform block-level reduction
   __shared__ float smem[BLOCK_SIZE];
   smem[tid] = sum;
-  __syncthreads();
 
-  // reduction in shared memory
-  for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
-    if (tid < stride) {
-      smem[tid] += smem[tid + stride];
-    }
-    __syncthreads();
-  }
+  blockReduceSum<float, BLOCK_SIZE>(smem, tid);
+
   // write block result
   if (tid == 0) {
     partialSum[blockIdx.x] = smem[0];
@@ -72,15 +67,9 @@ __global__ void partialSumReductionKernel(float *partialSum, float *result,
     sum += partialSum[i];
   }
   smem[tid] = sum;
-  __syncthreads();
 
-  // reduction in shared memory
-  for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
-    if (tid < stride) {
-      smem[tid] += smem[tid + stride];
-    }
-    __syncthreads();
-  }
+  // perform block-level reduction
+  blockReduceSum<float, BLOCK_SIZE>(smem, tid);
 
   // write final result
   if (tid == 0) {

@@ -2,8 +2,10 @@
 #define DOT_PRODUCT_H
 
 #include <cuda_runtime.h>
+#include "cuda_config.h"
 
-#define BLOCK_SIZE 256
+// Use centralized block size constant
+#define BLOCK_SIZE DEFAULT_BLOCK_SIZE
 
 // one staged
 // stage 1: grid-stride loop + atomic add -> result

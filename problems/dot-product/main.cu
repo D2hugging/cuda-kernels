@@ -17,13 +17,19 @@ float cpuDotProduct(const float *a, const float *b, size_t n) {
   return static_cast<float>(sum);
 }
 
-void verifyDotProduct(float gpu_res, float cpu_res, float epsilon = 1e-5f) {
+// Track verification failures for exit code
+static int g_verificationFailures = 0;
+
+bool verifyDotProduct(float gpu_res, float cpu_res, float epsilon = 1e-5f) {
   if (almostEqual(gpu_res, cpu_res, epsilon)) {
     std::cout << "Verification PASSED: GPU result = " << gpu_res
               << ", CPU result = " << cpu_res << '\n';
+    return true;
   } else {
     std::cerr << "Verification FAILED: GPU result = " << gpu_res
               << ", CPU result = " << cpu_res << '\n';
+    g_verificationFailures++;
+    return false;
   }
 }
 
@@ -36,8 +42,11 @@ int main() {
                                  256 * 1024 * 1024, 512 * 1024 * 1024,
                                  768 * 1024 * 1024, 1024 * 1024 * 1024};
 
-  // warmups 10，samples 5
-  Benchmarker bench(10, 5);
+  // Configure benchmarker: warmup 10, trials 5
+  Benchmarker::Config config;
+  config.warmup = 10;
+  config.trials = 5;
+  Benchmarker bench(config);
 
   for (size_t n : n_sizes) {
     std::cout << "\n>>> Testing N = " << n << " ("
@@ -69,22 +78,21 @@ int main() {
     std::string label = "N_" + std::to_string(n / 1024) + "K";
 
     // one staged naive implementation
-    bench.run(
+    bench.run<float>(
         "Stage1Naive_" + label, n,
         [&]() {
           cudaMemsetAsync(d_res, 0, sizeof(float));
           dotProductStage1NaiveKernel<<<numBlocks, BLOCK_SIZE>>>(d_a, d_b,
                                                                  d_res, n);
         },
-        [&]() {
-          // verify
+        [&]() -> bool {
           float h_res;
           cudaMemcpy(&h_res, d_res, sizeof(float), cudaMemcpyDeviceToHost);
-          verifyDotProduct(h_res, cpu_res);
+          return verifyDotProduct(h_res, cpu_res);
         });
 
     // two staged naive implementation
-    bench.run(
+    bench.run<float>(
         "Stage2Naive_" + label, n,
         [&]() {
           cudaMemsetAsync(d_partialSum, 0, numBlocks * sizeof(float), 0);
@@ -93,15 +101,14 @@ int main() {
           partialSumReductionKernel<<<1, BLOCK_SIZE>>>(d_partialSum, d_res,
                                                        numBlocks);
         },
-        [&]() {
-          // verify
+        [&]() -> bool {
           float h_res;
           cudaMemcpy(&h_res, d_res, sizeof(float), cudaMemcpyDeviceToHost);
-          verifyDotProduct(h_res, cpu_res);
+          return verifyDotProduct(h_res, cpu_res);
         });
 
     // shared memory implementation
-    bench.run(
+    bench.run<float>(
         "SharedMem_" + label, n,
         [&]() {
           dotProductSharedMemKernel<<<numBlocks, BLOCK_SIZE>>>(d_a, d_b,
@@ -109,11 +116,10 @@ int main() {
           partialSumReductionKernel<<<1, BLOCK_SIZE>>>(d_partialSum, d_res,
                                                        numBlocks);
         },
-        [&]() {
-          // verify
+        [&]() -> bool {
           float h_res;
           cudaMemcpy(&h_res, d_res, sizeof(float), cudaMemcpyDeviceToHost);
-          verifyDotProduct(h_res, cpu_res);
+          return verifyDotProduct(h_res, cpu_res);
         });
 
     // free memory
@@ -123,12 +129,18 @@ int main() {
     cudaFree(d_res);
   }
 
-  // 2. save the results to CSV
+  // Print summary table
+  bench.printSummary();
+
+  // Save the results to CSV
   bench.exportToCsv("dot_product_benchmark.csv");
 
-  // save the results to JSON
-  // std::ofstream jsonFile("report.json");
-  // jsonFile << bench.exportToJson();
+  // Return non-zero exit code if any verification failed
+  if (g_verificationFailures > 0) {
+    std::cerr << "\nTotal verification failures: " << g_verificationFailures << '\n';
+    return 1;
+  }
 
+  std::cout << "\nAll verifications passed!\n";
   return 0;
 }

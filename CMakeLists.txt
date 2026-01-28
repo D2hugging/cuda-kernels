@@ -12,12 +12,10 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# CUDA architecture (my card is RTX3090)
-set(CMAKE_CUDA_ARCHITECTURES 86)
-
-# 75 (Turing), 80 (Ampere A100), 86 (Ampere RTX 30xx), 89 (Ada RTX 40xx)
+# CUDA architecture: 75 (Turing), 80 (Ampere A100), 86 (Ampere RTX 30xx), 89 (Ada RTX 40xx)
+# Default to 86 (RTX 3090) if not specified via -DCMAKE_CUDA_ARCHITECTURES=...
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 80 86)
+    set(CMAKE_CUDA_ARCHITECTURES 86)
 endif()
 
 # compile options
@@ -27,6 +25,7 @@ set(CMAKE_CUDA_FLAGS_RELEASE "-O3 -DNDEBUG")
 
 # include custom CMake modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(CUDAConfig)
 
 # output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -40,14 +39,14 @@ enable_testing()
 add_subdirectory(common)
 add_subdirectory(problems)
 
-# optional subdirectories
-if(BUILD_BENCHMARKS)
-    add_subdirectory(benchmarks)
-endif()
+# optional subdirectories (uncomment when directories exist)
+# if(BUILD_BENCHMARKS)
+#     add_subdirectory(benchmarks)
+# endif()
 
-if(BUILD_TESTS)
-    add_subdirectory(tests)
-endif()
+# if(BUILD_TESTS)
+#     add_subdirectory(tests)
+# endif()
 
 # print configuration summary
 message(STATUS "")
