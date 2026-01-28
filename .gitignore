@@ -11,7 +11,7 @@ CMakeFiles/
 CMakeScripts/
 cmake_install.cmake
 Makefile
-*.cmake
+# *.cmake
 
 # compiled object files
 *.o
