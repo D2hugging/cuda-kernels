@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cuda_runtime.h>
 #include <functional>
+#include <iostream>
 #include <numeric>
 #include <string>
 #include <vector>
@@ -14,7 +15,7 @@
 struct BenchmarkResult {
   std::string tag;
   size_t n;
-  size_t elementSize;    // sizeof(T) for bandwidth calculation
+  size_t elementSize; // sizeof(T) for bandwidth calculation
   int memAccessFactor;
 
   // Full statistics
@@ -23,7 +24,7 @@ struct BenchmarkResult {
   float meanMs;
   float medianMs;
   float stddevMs;
-  std::vector<float> trials;  // Raw trial data (optional)
+  std::vector<float> trials; // Raw trial data (optional)
 
   // GPU bandwidth in GB/s using actual element size
   double getBandwidthGBs() const {
@@ -64,23 +65,24 @@ public:
   struct Config {
     int warmup = 10;
     int trials = 100;
-    bool storeRawTrials = false;  // Save all trial times (memory cost)
-    cudaStream_t stream = 0;      // Optional stream
+    bool storeRawTrials = false; // Save all trial times (memory cost)
+    cudaStream_t stream = 0;     // Optional stream
   };
 
-  explicit Benchmarker(Config config = {}) : config_(config) {}
+  // Default constructor with default config
+  Benchmarker() : config_() {}
+
+  // Constructor with custom config
+  explicit Benchmarker(const Config &config) : config_(config) {}
 
   // Legacy constructor for backward compatibility
-  Benchmarker(int warmup, int trials)
-      : config_{warmup, trials, false, 0} {}
+  Benchmarker(int warmup, int trials) : config_{warmup, trials, false, 0} {}
 
   // Template for element size (float, double, etc.)
   // verifyFunc returns bool: true = passed, false = failed
   template <typename T = float>
-  void run(const std::string &tag, size_t n,
-           std::function<void()> kernelFunc,
-           std::function<bool()> verifyFunc = nullptr,
-           int memAccessFactor = 2);
+  void run(const std::string &tag, size_t n, std::function<void()> kernelFunc,
+           std::function<bool()> verifyFunc = nullptr, int memAccessFactor = 2);
 
   // Legacy run() for backward compatibility (void verifyFunc)
   void runLegacy(const std::string &tag, size_t n,
@@ -107,8 +109,7 @@ private:
 template <typename T>
 void Benchmarker::run(const std::string &tag, size_t n,
                       std::function<void()> kernelFunc,
-                      std::function<bool()> verifyFunc,
-                      int memAccessFactor) {
+                      std::function<bool()> verifyFunc, int memAccessFactor) {
   // 1. Warmup with sync
   for (int i = 0; i < config_.warmup; ++i) {
     kernelFunc();
@@ -135,7 +136,8 @@ void Benchmarker::run(const std::string &tag, size_t n,
   }
 
   // 4. Compute statistics and store
-  BenchmarkResult result = computeStats(tag, n, sizeof(T), memAccessFactor, trialTimes);
+  BenchmarkResult result =
+      computeStats(tag, n, sizeof(T), memAccessFactor, trialTimes);
   results_.push_back(std::move(result));
 }
 
