@@ -14,7 +14,7 @@ $$
 | Stage1Navive | Single-stage atomic reduction | Global atomic (high contention) | Baseline (worst) | Implementated |
 | Stage2Naive | Two-stage with per-block atomics | Atomic per block | Better | Implemented |
 | SharedMem | Two-stage with shared memory reduction | Shared memory + tree reduction | Best | Implemented |
-| WarpShuffle | Warp-level primitives | Warp shuffle instructions | Future optimization | TODO |
+| WarpShuffle | Warp-level primitives | Warp shuffle instructions | Future optimization | Implemented |
 
 ## Kernel Descriptions
 
@@ -26,7 +26,7 @@ $$
 - each thread compute partial sum
 - all threads atomically add their result to a single global `result` variable
 
-**Code Pattern**:
+**Code**:
 
 ```cuda
 
@@ -56,6 +56,81 @@ The dot-product is a **reduction problem**: many inputs -> single output. Naive 
 
 ![alt text](kernel.png)
 
+## Code Pattern
+
+### Grid-stride loop
+
+All kernels use the grid-stride loop for robustness:
+
+```cuda
+int idx = blockIdx.x * blockDim.x + threadIdx.x;
+int stride = gridDim.x * blockDim.x;
+for (int i = idx; i < N; i += stride) {
+    // process element i ...
+}
+
+```
+
+**Benefits**:
+
+- handles any n size, regardless of grid dimensions
+- load balancing: distributes work evenly when n is not divisible by grid size
+- allows limiting grid size while processing billions of elements
+
+### Two-stage reduction
+
+Stage 1:
+  Input: vectors a[n], b[n]
+  Output: partialSum[numBlocks] // one value per block
+
+Stage 2:
+  Input: partialSum[numBlocks]
+  Output: result // single scalar
+
+**Why two stages?**:
+
+- avoid requiring all blocks to fit in GPU simultaneously
+- allow processing datasets larger than GPU memory
+- second stage has minimal cost (only 1024 elements max)
+
+## Building and Running
+
+### Build
+
+```bash
+    # From project root
+    mkdir -p build && cd build
+    cmake ..
+    cmake --build . --target dot-product
+```
+
+### Run benchmark
+
+```bash
+    ./bin/dot-product
+```
+
+**Output**: CSV file dot_product_benchmark.csv with timing statistics
+
+### Run tests
+
+```bash
+    ctest -R dot-product
+```
+
+### Visualize Results
+
+```bash
+python scripts/analyze_benchmark.py dot_product_benchmark.csv
+```
+
+**Generates plots**:
+
+- bandwidth_vs_size.png: Bandwidth scaling across data sizes
+- kernel_comparison.png: Execution time comparison with error bars
+- speedup_comparison.png: Relative speedup vs baseline
+- variance_analysis.png: Timing consistency (cofficient of variation)
+
 ## Performance
 
 **Test Configuration**:
@@ -69,3 +144,11 @@ The dot-product is a **reduction problem**: many inputs -> single output. Naive 
 
 **Bandwidth**:
 ![alt text](bandwidth.png)
+
+**Precision Considerations**:
+
+- CPU reference uses `double` accumulation for higher precision
+- GPU kernels use `float` with epsilon tolerance: 1e-5
+- **Large datasets**: Floating-point accumulation order can cause slight differences
+  - Atomic operations have non-deterministic ordering
+  - Relative error remains acceptable (<1e-5) for most use case

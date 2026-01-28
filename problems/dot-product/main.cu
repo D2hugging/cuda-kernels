@@ -26,6 +26,7 @@ bool verifyDotProduct(float gpu_res, float cpu_res, float epsilon = 1e-5f) {
               << ", CPU result = " << cpu_res << '\n';
     return true;
   } else {
+    std::cerr << std::fixed << std::setprecision(8) << '\n';
     std::cerr << "Verification FAILED: GPU result = " << gpu_res
               << ", CPU result = " << cpu_res << '\n';
     g_verificationFailures++;
