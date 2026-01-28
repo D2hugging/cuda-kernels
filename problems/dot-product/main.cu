@@ -121,6 +121,20 @@ int main() {
           cudaMemcpy(&h_res, d_res, sizeof(float), cudaMemcpyDeviceToHost);
           return verifyDotProduct(h_res, cpu_res);
         });
+    // warp shuffle implementation
+    bench.run<float>(
+        "WarpShuffle_" + label, n,
+        [&]() {
+          dotProductWarpShuffleKernel<<<numBlocks, BLOCK_SIZE>>>(
+              d_a, d_b, d_partialSum, n);
+          partialSumReductionKernel<<<1, BLOCK_SIZE>>>(d_partialSum, d_res,
+                                                       numBlocks);
+        },
+        [&]() -> bool {
+          float h_res;
+          cudaMemcpy(&h_res, d_res, sizeof(float), cudaMemcpyDeviceToHost);
+          return verifyDotProduct(h_res, cpu_res);
+        });
 
     // free memory
     cudaFree(d_a);
@@ -137,7 +151,8 @@ int main() {
 
   // Return non-zero exit code if any verification failed
   if (g_verificationFailures > 0) {
-    std::cerr << "\nTotal verification failures: " << g_verificationFailures << '\n';
+    std::cerr << "\nTotal verification failures: " << g_verificationFailures
+              << '\n';
     return 1;
   }
 

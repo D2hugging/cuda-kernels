@@ -1,43 +1,71 @@
+# Vector Dot Product - CUDA Kernel Implementations
 
-```shell
->>> Testing N = 262144 (2 MB data)
-Verification PASSED: GPU result = 194.38, CPU result = 194.381
-Verification PASSED: GPU result = 194.381, CPU result = 194.381
-Verification PASSED: GPU result = 194.381, CPU result = 194.381
+Parallel GPU implementations of vector dot product with progressive optimization strategies.
 
->>> Testing N = 524288 (4 MB data)
-Verification PASSED: GPU result = 123.325, CPU result = 123.325
-Verification PASSED: GPU result = 123.325, CPU result = 123.325
-Verification PASSED: GPU result = 123.325, CPU result = 123.325
+**Problem**: Compute dot product of two float vectors: 
+$$
+result =  \sum_{i=0}^{n-1} a_{i} \cdot b_{i} 
+$$
 
->>> Testing N = 1048576 (8 MB data)
-Verification PASSED: GPU result = 207.921, CPU result = 207.92
-Verification PASSED: GPU result = 207.92, CPU result = 207.92
-Verification PASSED: GPU result = 207.92, CPU result = 207.92
+## Implementations
 
->>> Testing N = 134217728 (1024 MB data)
-Verification PASSED: GPU result = 7146.49, CPU result = 7146.46
-Verification PASSED: GPU result = 7146.46, CPU result = 7146.46
-Verification PASSED: GPU result = 7146.46, CPU result = 7146.46
+| Kernel | Strategy | Synchronization | Expected Performance | Status |
+| -------- | -------- | -------- | -------- | -------- |
+| Stage1Navive | Single-stage atomic reduction | Global atomic (high contention) | Baseline (worst) | Implementated |
+| Stage2Naive | Two-stage with per-block atomics | Atomic per block | Better | Implemented |
+| SharedMem | Two-stage with shared memory reduction | Shared memory + tree reduction | Best | Implemented |
+| WarpShuffle | Warp-level primitives | Warp shuffle instructions | Future optimization | TODO |
 
->>> Testing N = 268435456 (2048 MB data)
-Verification PASSED: GPU result = -7979.41, CPU result = -7979.46
-Verification PASSED: GPU result = -7979.46, CPU result = -7979.46
-Verification PASSED: GPU result = -7979.46, CPU result = -7979.46
+## Kernel Descriptions
 
->>> Testing N = 536870912 (4096 MB data)
-Verification FAILED: GPU result = 914.927, CPU result = 914.948
-Verification PASSED: GPU result = 914.948, CPU result = 914.948
-Verification PASSED: GPU result = 914.949, CPU result = 914.948
+### Stage1Navive
 
->>> Testing N = 805306368 (6144 MB data)
-Verification FAILED: GPU result = -222.414, CPU result = -222.401
-Verification FAILED: GPU result = -222.397, CPU result = -222.401
-Verification FAILED: GPU result = -222.396, CPU result = -222.401
+**Strategy**:
 
->>> Testing N = 1073741824 (8192 MB data)
-Verification FAILED: GPU result = -273.733, CPU result = -273.756
-Verification PASSED: GPU result = -273.758, CPU result = -273.756
-Verification FAILED: GPU result = -273.753, CPU result = -273.756
+- grid-stride loop for load balancing across any data size
+- each thread compute partial sum
+- all threads atomically add their result to a single global `result` variable
+
+**Code Pattern**:
+
+```cuda
+
+for (int i = idx; i < n; i += stride) {
+    sum += a[i] * b[i];
+}
+atomicAdd(result, sum); // high contention
 
 ```
+
+**Performance**:
+
+- very slow, becase all the threads update the same location, the GPU must serialize these operations.
+
+## Optimization Progression
+
+### Problem
+
+The dot-product is a **reduction problem**: many inputs -> single output. Naive approache faces:
+
+1. **Contention**: All threads competing for the same output location
+2. **Serialization**: Atomic operations force sequential execution
+
+### Solution strategy: Hierarchical Reduction
+
+**Key insight**: Match GPU memory hierarchy levels (global -> shared -> registers)
+
+![alt text](kernel.png)
+
+## Performance
+
+**Test Configuration**:
+
+- GPU: NVIDIA RTX 3090 (Ampere, compute capability 8.6)
+- Block size: 256 threads
+- Max grid blocks: 1024
+- Warmup iterations: 10
+- Trial runs: 5
+- Data type: `float` (4 bytes)
+
+**Bandwidth**:
+![alt text](bandwidth.png)

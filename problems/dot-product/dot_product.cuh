@@ -1,8 +1,8 @@
 #ifndef DOT_PRODUCT_H
 #define DOT_PRODUCT_H
 
-#include <cuda_runtime.h>
 #include "cuda_config.h"
+#include <cuda_runtime.h>
 
 // Use centralized block size constant
 #define BLOCK_SIZE DEFAULT_BLOCK_SIZE
@@ -20,7 +20,7 @@ __global__ void dotProductStage2NaiveKernel(const float *a, const float *b,
 __global__ void dotProductSharedMemKernel(const float *a, const float *b,
                                           float *partialSum, size_t n);
 
-// TODO
+// stage 1: grid-stride loop + warp shuffle + reduction -> block partial sum
 __global__ void dotProductWarpShuffleKernel(const float *a, const float *b,
                                             float *partialSum, size_t n);
 
