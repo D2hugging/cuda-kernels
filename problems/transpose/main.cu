@@ -88,27 +88,12 @@ int main() {
     int gridCols = (test_case.cols + TILE_SIZE - 1) / TILE_SIZE;
     dim3 grid(gridCols, gridRows); // (x,y,z) x:cols, y:rows
 
-    // naive, coalesced reads
+    // naive
     bench.run<float>(
         "Naive_" + test_case.label, test_case.rows * test_case.cols,
         [&]() {
           transposeNaiveKernel<<<grid, block>>>(d_a, d_b, test_case.rows,
                                                 test_case.cols);
-        },
-        [&]() -> bool {
-          cudaMemcpy(h_C.data(), d_b,
-                     test_case.rows * test_case.cols * sizeof(float),
-                     cudaMemcpyDeviceToHost);
-          return verifyTranspose(h_C.data(), h_B.data(), test_case.rows,
-                                 test_case.cols);
-        },
-        2);
-    // coalesced writes
-    bench.run<float>(
-        "CoalescedWrite_" + test_case.label, test_case.rows * test_case.cols,
-        [&]() {
-          transposeCoalescedWriteKernel<<<grid, block>>>(
-              d_a, d_b, test_case.rows, test_case.cols);
         },
         [&]() -> bool {
           cudaMemcpy(h_C.data(), d_b,

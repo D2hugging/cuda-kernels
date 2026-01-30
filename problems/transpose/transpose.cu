@@ -15,18 +15,6 @@ __global__ void transposeNaiveKernel(const float *input, float *output,
   }
 }
 
-// coalesced writes, but non-coalesced reads
-__global__ void transposeCoalescedWriteKernel(const float *input, float *output,
-                                              int rows, int cols) {
-  int row = blockIdx.y * blockDim.y + threadIdx.y;
-  int col = blockIdx.x * blockDim.x + threadIdx.x;
-
-  if (row < rows && col < cols) {
-    // swap indices for coalesced writes
-    output[row * cols + col] = input[col * rows + row];
-  }
-}
-
 // shared memory with bank conflicts
 __global__ void transposeSharedMemKernel(const float *input, float *output,
                                          int rows, int cols) {

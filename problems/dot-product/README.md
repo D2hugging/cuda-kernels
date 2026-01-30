@@ -145,7 +145,7 @@ python scripts/analyze_benchmark.py dot_product_benchmark.csv
 - Data type: `float` (4 bytes)
 
 **Bandwidth**:
-![alt text](bandwidth.png)
+![alt text](bandwidth_vs_size.png)
 
 **Precision Considerations**:
 

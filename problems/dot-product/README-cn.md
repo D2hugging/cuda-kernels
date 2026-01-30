@@ -147,7 +147,7 @@ python scripts/analyze_benchmark.py dot_product_benchmark.csv
 - 数据类型：float（4 字节）
 
 **带宽表现**:
-![alt text](bandwidth.png)
+![alt text](bandwidth_vs_size.png)
 
 **精度说明**：
 

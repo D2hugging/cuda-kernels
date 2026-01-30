@@ -11,10 +11,6 @@
 __global__ void transposeNaiveKernel(const float *input, float *output,
                                      int rows, int cols);
 
-// coalesced writes,but non-coalesced reads
-__global__ void transposeCoalescedWriteKernel(const float *input, float *output,
-                                              int rows, int cols);
-
 // shared memory with bank conflicts
 __global__ void transposeSharedMemKernel(const float *input, float *output,
                                          int rows, int cols);
