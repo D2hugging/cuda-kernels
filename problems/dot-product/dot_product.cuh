@@ -4,8 +4,7 @@
 #include "cuda_config.h"
 #include <cuda_runtime.h>
 
-// Use centralized block size constant
-#define BLOCK_SIZE DEFAULT_BLOCK_SIZE
+#define BLOCK_SIZE DEFAULT_BLOCK_SIZE // block size for kernels
 
 // one staged
 // stage 1: grid-stride loop + atomic add -> result

@@ -76,8 +76,7 @@ int main() {
         cudaMemcpy(d_b, b.data(), n * sizeof(float), cudaMemcpyHostToDevice));
 
     // label
-    std::string label = "N_" + std::to_string(n / 1024) + "K";
-
+    std::string label = std::to_string(n);
     // one staged naive implementation
     bench.run<float>(
         "Stage1Naive_" + label, n,

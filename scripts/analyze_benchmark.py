@@ -33,7 +33,7 @@ def load_benchmark_data(csv_path: Path) -> pd.DataFrame:
     df = df.rename(columns=column_mapping)
 
     # Extract base kernel name (remove _N_XXX suffix) for grouping
-    df["kernel_type"] = df["tag"].str.replace(r"_N_\d+K?$", "", regex=True)
+    df["kernel_type"] = df["tag"].str.replace(r"_\d+(x\d+)*$", "", regex=True)
 
     return df
 
@@ -50,9 +50,12 @@ def print_summary(df: pd.DataFrame) -> None:
     print(f"\n{'Kernel Type':<20} {'Mean (ms)':<12} {'Min (ms)':<12} {'StdDev (ms)':<12} {'BW (GB/s)':<12} {'Speedup':<10}")
     print("-" * 90)
 
-    # Find baseline (Stage1Naive) for speedup calculation
-    baseline_data = df[df["kernel_type"] == "Stage1Naive"]
-    baseline_time = baseline_data["mean_time_ms"].mean() if not baseline_data.empty else df["mean_time_ms"].mean()
+    # Find baseline: slowest kernel (highest mean time)
+    kernel_times = df.groupby("kernel_type")["mean_time_ms"].mean()
+    baseline_type = kernel_times.idxmax()
+    baseline_time = kernel_times.max()
+
+    print(f"Using '{baseline_type}' as baseline (slowest kernel)\n")
 
     for kernel_type, group in grouped:
         mean_time = group["mean_time_ms"].mean()
@@ -155,14 +158,10 @@ def plot_speedup_chart(df: pd.DataFrame, output_dir: Path) -> None:
     """Create bar chart showing speedup relative to baseline kernel."""
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    # Use Stage1Naive as baseline
-    baseline_data = df[df["kernel_type"] == "Stage1Naive"]
-    if baseline_data.empty:
-        baseline_type = df["kernel_type"].iloc[0]
-        baseline_data = df[df["kernel_type"] == baseline_type]
-    else:
-        baseline_type = "Stage1Naive"
-    baseline_time = baseline_data["mean_time_ms"].mean()
+    # Find baseline: slowest kernel (highest mean time)
+    kernel_times = df.groupby("kernel_type")["mean_time_ms"].mean()
+    baseline_type = kernel_times.idxmax()
+    baseline_time = kernel_times.max()
 
     avg_times = df.groupby("kernel_type")["mean_time_ms"].mean()
     speedups = baseline_time / avg_times

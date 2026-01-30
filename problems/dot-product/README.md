@@ -80,12 +80,14 @@ for (int i = idx; i < N; i += stride) {
 ### Two-stage reduction
 
 Stage 1:
-  Input: vectors a[n], b[n]
-  Output: partialSum[numBlocks] // one value per block
+
+- Input: vectors a[n], b[n]
+- Output: partialSum[numBlocks] // one value per block
 
 Stage 2:
-  Input: partialSum[numBlocks]
-  Output: result // single scalar
+
+- Input: partialSum[numBlocks]
+- Output: result // single scalar
 
 **Why two stages?**:
 
