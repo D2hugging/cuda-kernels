@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cuda_runtime.h>
+#include <iomanip>
 #include <iostream>
 #include <vector>
 

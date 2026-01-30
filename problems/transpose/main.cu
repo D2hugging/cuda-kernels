@@ -86,7 +86,7 @@ int main() {
     dim3 block(TILE_SIZE, TILE_SIZE);
     int gridRows = (test_case.rows + TILE_SIZE - 1) / TILE_SIZE;
     int gridCols = (test_case.cols + TILE_SIZE - 1) / TILE_SIZE;
-    dim3 grid(gridRows, gridCols);
+    dim3 grid(gridCols, gridRows); // (x,y,z) x:cols, y:rows
 
     // naive, coalesced reads
     bench.run<float>(

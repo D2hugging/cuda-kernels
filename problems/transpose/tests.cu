@@ -35,7 +35,7 @@ static void runTransposeSharedMemPadded(const float *h_a, float *h_b,
   dim3 block(TILE_SIZE, TILE_SIZE);
   int yDim = (rows + TILE_SIZE - 1) / TILE_SIZE;
   int xDim = (cols + TILE_SIZE - 1) / TILE_SIZE;
-  dim3 grid(yDim, xDim);
+  dim3 grid(xDim, yDim); // (x,y,z) x:cols, y:rows
 
   transposeSharedMemPaddedKernel<<<grid, block>>>(d_a, d_b, rows, cols);
 
