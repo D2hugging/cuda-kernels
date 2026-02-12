@@ -117,11 +117,15 @@ int main() {
         [&]() {
           gemmNaiveKernel<<<grid, block>>>(d_A, d_B, d_C, tc.M, tc.N, tc.K);
         },
-        shouldVerify ? [&]() -> bool {
+        [&]() -> bool {
+          if (!shouldVerify) {
+            std::cout << "Verification SKIPPED (large matrix)\n";
+            return true;
+          }
           cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float),
                      cudaMemcpyDeviceToHost);
           return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, 1e-3f);
-        } : nullptr,
+        },
         2,      // memAccessFactor (for bandwidth calculation)
         flops); // totalFlops = 2 * M * N * K
 
@@ -131,11 +135,15 @@ int main() {
         [&]() {
           gemmTiledKernel<<<grid, block>>>(d_A, d_B, d_C, tc.M, tc.N, tc.K);
         },
-        shouldVerify ? [&]() -> bool {
+        [&]() -> bool {
+          if (!shouldVerify) {
+            std::cout << "Verification SKIPPED (large matrix)\n";
+            return true;
+          }
           cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float),
                      cudaMemcpyDeviceToHost);
           return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, 1e-3f);
-        } : nullptr,
+        },
         2,      // memAccessFactor
         flops); // totalFlops = 2 * M * N * K
 
@@ -153,11 +161,15 @@ int main() {
           gemmRegisterBlockingKernel<<<gridReg, blockReg>>>(d_A, d_B, d_C, tc.M,
                                                             tc.N, tc.K);
         },
-        shouldVerify ? [&]() -> bool {
+        [&]() -> bool {
+          if (!shouldVerify) {
+            std::cout << "Verification SKIPPED (large matrix)\n";
+            return true;
+          }
           cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float),
                      cudaMemcpyDeviceToHost);
           return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, 1e-3f);
-        } : nullptr,
+        },
         2,      // memAccessFactor
         flops); // totalFlops = 2 * M * N * K
 
