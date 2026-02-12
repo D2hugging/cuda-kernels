@@ -83,8 +83,8 @@ static bool testIdentityMatrix() {
 
   runGEMMKernel(A.data(), B.data(), C_gpu.data(), N, N, N, "tiled");
 
-  // I * B = B, so C should equal B
-  return arrayEqual(C_gpu.data(), B.data(), N * N, 1e-5f);
+  // I * B = B, so C should equal B (use strict tolerance for identity)
+  return arrayEqualTol(C_gpu.data(), B.data(), N * N, 1e-5f, 1e-6f);
 }
 
 // Test: square matrix
@@ -101,7 +101,10 @@ static bool testSquareMatrix() {
   runGEMMKernel(A.data(), B.data(), C_gpu.data(), N, N, N, "register");
   cpuGemm(A.data(), B.data(), C_cpu.data(), N, N, N);
 
-  return arrayEqual(C_gpu.data(), C_cpu.data(), N * N, 1e-3f);
+  // Use adaptive tolerance: atol scales with sqrt(K)
+  float rtol = 1e-4f;
+  float atol = 1e-5f * std::sqrt(static_cast<float>(N));
+  return arrayEqualTol(C_gpu.data(), C_cpu.data(), N * N, rtol, atol);
 }
 
 // Test: non-square matrix (M ≠ N ≠ K)
@@ -118,7 +121,10 @@ static bool testNonSquareMatrix() {
   runGEMMKernel(A.data(), B.data(), C_gpu.data(), M, N, K, "tiled");
   cpuGemm(A.data(), B.data(), C_cpu.data(), M, N, K);
 
-  return arrayEqual(C_gpu.data(), C_cpu.data(), M * N, 1e-3f);
+  // Use adaptive tolerance: atol scales with sqrt(K)
+  float rtol = 1e-4f;
+  float atol = 1e-5f * std::sqrt(static_cast<float>(K));
+  return arrayEqualTol(C_gpu.data(), C_cpu.data(), M * N, rtol, atol);
 }
 
 // Test: non-tile-aligned dimensions
@@ -135,7 +141,10 @@ static bool testNonTileAlignedDims() {
   runGEMMKernel(A.data(), B.data(), C_gpu.data(), M, N, K, "register");
   cpuGemm(A.data(), B.data(), C_cpu.data(), M, N, K);
 
-  return arrayEqual(C_gpu.data(), C_cpu.data(), M * N, 1e-3f);
+  // Use adaptive tolerance: atol scales with sqrt(K)
+  float rtol = 1e-4f;
+  float atol = 1e-5f * std::sqrt(static_cast<float>(K));
+  return arrayEqualTol(C_gpu.data(), C_cpu.data(), M * N, rtol, atol);
 }
 
 // Test: zero matrices
@@ -169,7 +178,10 @@ static bool testLargeMatrix() {
   runGEMMKernel(A.data(), B.data(), C_gpu.data(), M, N, K, "register");
   cpuGemm(A.data(), B.data(), C_cpu.data(), M, N, K);
 
-  return arrayEqual(C_gpu.data(), C_cpu.data(), M * N, 5e-3f); // Larger epsilon
+  // Use adaptive tolerance: atol scales with sqrt(K)
+  float rtol = 1e-4f;
+  float atol = 1e-5f * std::sqrt(static_cast<float>(K));
+  return arrayEqualTol(C_gpu.data(), C_cpu.data(), M * N, rtol, atol);
 }
 
 int main() {
