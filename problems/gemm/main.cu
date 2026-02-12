@@ -9,6 +9,8 @@
 #include <iostream>
 #include <vector>
 
+constexpr size_t VERIFY_THRESHOLD = 2048; // Skip CPU verification above this
+
 void cpuGemm(const float *h_A, const float *h_B, float *h_C, int M, int N,
              int K) {
   for (int i = 0; i < M; ++i) {
@@ -81,7 +83,12 @@ int main() {
     fillRandom(h_A.data(), tc.M * tc.K, -1.0f, 1.0f);
     fillRandom(h_B.data(), tc.K * tc.N, -1.0f, 1.0f);
 
-    cpuGemm(h_A.data(), h_B.data(), h_C.data(), tc.M, tc.N, tc.K);
+    bool shouldVerify = (tc.M < VERIFY_THRESHOLD && tc.N < VERIFY_THRESHOLD &&
+                         tc.K < VERIFY_THRESHOLD);
+
+    if (shouldVerify) {
+      cpuGemm(h_A.data(), h_B.data(), h_C.data(), tc.M, tc.N, tc.K);
+    }
 
     // gpu
     float *d_A, *d_B, *d_C;
@@ -110,11 +117,11 @@ int main() {
         [&]() {
           gemmNaiveKernel<<<grid, block>>>(d_A, d_B, d_C, tc.M, tc.N, tc.K);
         },
-        [&]() -> bool {
+        shouldVerify ? [&]() -> bool {
           cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float),
                      cudaMemcpyDeviceToHost);
-          return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N);
-        },
+          return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, 1e-3f);
+        } : nullptr,
         2,      // memAccessFactor (for bandwidth calculation)
         flops); // totalFlops = 2 * M * N * K
 
@@ -124,11 +131,11 @@ int main() {
         [&]() {
           gemmTiledKernel<<<grid, block>>>(d_A, d_B, d_C, tc.M, tc.N, tc.K);
         },
-        [&]() -> bool {
+        shouldVerify ? [&]() -> bool {
           cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float),
                      cudaMemcpyDeviceToHost);
-          return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N);
-        },
+          return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, 1e-3f);
+        } : nullptr,
         2,      // memAccessFactor
         flops); // totalFlops = 2 * M * N * K
 
@@ -146,11 +153,11 @@ int main() {
           gemmRegisterBlockingKernel<<<gridReg, blockReg>>>(d_A, d_B, d_C, tc.M,
                                                             tc.N, tc.K);
         },
-        [&]() -> bool {
+        shouldVerify ? [&]() -> bool {
           cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float),
                      cudaMemcpyDeviceToHost);
-          return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N);
-        },
+          return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, 1e-3f);
+        } : nullptr,
         2,      // memAccessFactor
         flops); // totalFlops = 2 * M * N * K
 

@@ -1,4 +1,4 @@
-set(TARGET_NAME GEMM)
+set(TARGET_NAME gemm)
 
 set(SOURCES
     gemm.cu
