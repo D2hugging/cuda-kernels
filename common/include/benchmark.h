@@ -17,6 +17,7 @@ struct BenchmarkResult {
   size_t n;
   size_t elementSize; // sizeof(T) for bandwidth calculation
   int memAccessFactor;
+  size_t totalFlops = 0; // Total floating point operations (0 = bandwidth-bound)
 
   // Full statistics
   float minMs;
@@ -44,6 +45,24 @@ struct BenchmarkResult {
     double totalBytes = static_cast<double>(n) * memAccessFactor * elementSize;
     double seconds = static_cast<double>(minMs) / 1000.0;
     return (totalBytes / 1e9) / seconds;
+  }
+
+  // GFLOPS for compute-bound kernels (mean time)
+  double getGflops() const {
+    if (meanMs <= 0 || totalFlops == 0) {
+      return 0;
+    }
+    double seconds = static_cast<double>(meanMs) / 1000.0;
+    return static_cast<double>(totalFlops) / seconds / 1e9;
+  }
+
+  // GFLOPS using min time (peak performance)
+  double getPeakGflops() const {
+    if (minMs <= 0 || totalFlops == 0) {
+      return 0;
+    }
+    double seconds = static_cast<double>(minMs) / 1000.0;
+    return static_cast<double>(totalFlops) / seconds / 1e9;
   }
 };
 
@@ -80,15 +99,11 @@ public:
 
   // Template for element size (float, double, etc.)
   // verifyFunc returns bool: true = passed, false = failed
+  // totalFlops: total floating point operations (0 = bandwidth-bound, use for GEMM: 2*M*N*K)
   template <typename T = float>
   void run(const std::string &tag, size_t n, std::function<void()> kernelFunc,
-           std::function<bool()> verifyFunc = nullptr, int memAccessFactor = 2);
-
-  // Legacy run() for backward compatibility (void verifyFunc)
-  void runLegacy(const std::string &tag, size_t n,
-                 std::function<void()> kernelFunc,
-                 std::function<void()> verifyFunc = nullptr,
-                 int memAccessFactor = 2);
+           std::function<bool()> verifyFunc = nullptr, int memAccessFactor = 2,
+           size_t totalFlops = 0);
 
   const std::vector<BenchmarkResult> &getResults() const { return results_; }
 
@@ -102,6 +117,7 @@ private:
 
   BenchmarkResult computeStats(const std::string &tag, size_t n,
                                size_t elemSize, int memFactor,
+                               size_t totalFlops,
                                std::vector<float> &times) const;
 };
 
@@ -109,7 +125,8 @@ private:
 template <typename T>
 void Benchmarker::run(const std::string &tag, size_t n,
                       std::function<void()> kernelFunc,
-                      std::function<bool()> verifyFunc, int memAccessFactor) {
+                      std::function<bool()> verifyFunc, int memAccessFactor,
+                      size_t totalFlops) {
   // 1. Warmup with sync
   for (int i = 0; i < config_.warmup; ++i) {
     kernelFunc();
@@ -137,7 +154,7 @@ void Benchmarker::run(const std::string &tag, size_t n,
 
   // 4. Compute statistics and store
   BenchmarkResult result =
-      computeStats(tag, n, sizeof(T), memAccessFactor, trialTimes);
+      computeStats(tag, n, sizeof(T), memAccessFactor, totalFlops, trialTimes);
   results_.push_back(std::move(result));
 }
 

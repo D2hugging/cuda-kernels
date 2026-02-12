@@ -7,6 +7,7 @@
 
 BenchmarkResult Benchmarker::computeStats(const std::string &tag, size_t n,
                                           size_t elemSize, int memFactor,
+                                          size_t flops,
                                           std::vector<float> &times) const {
   // Sort for min/max/median
   std::sort(times.begin(), times.end());
@@ -23,15 +24,15 @@ BenchmarkResult Benchmarker::computeStats(const std::string &tag, size_t n,
 
   // Median
   size_t mid = times.size() / 2;
-  float median = (times.size() % 2 == 0)
-                     ? (times[mid - 1] + times[mid]) / 2.0f
-                     : times[mid];
+  float median = (times.size() % 2 == 0) ? (times[mid - 1] + times[mid]) / 2.0f
+                                         : times[mid];
 
   BenchmarkResult result;
   result.tag = tag;
   result.n = n;
   result.elementSize = elemSize;
   result.memAccessFactor = memFactor;
+  result.totalFlops = flops;
   result.minMs = times.front();
   result.maxMs = times.back();
   result.meanMs = mean;
@@ -45,21 +46,6 @@ BenchmarkResult Benchmarker::computeStats(const std::string &tag, size_t n,
   return result;
 }
 
-void Benchmarker::runLegacy(const std::string &tag, size_t n,
-                            std::function<void()> kernelFunc,
-                            std::function<void()> verifyFunc,
-                            int memAccessFactor) {
-  // Wrap void verifyFunc as bool-returning (always passes after running)
-  std::function<bool()> boolVerify = nullptr;
-  if (verifyFunc) {
-    boolVerify = [verifyFunc]() {
-      verifyFunc();
-      return true;  // Legacy behavior: always record result
-    };
-  }
-  run<float>(tag, n, kernelFunc, boolVerify, memAccessFactor);
-}
-
 void Benchmarker::exportToCsv(const std::string &filename) const {
   std::ofstream file(filename);
   if (!file.is_open()) {
@@ -68,13 +54,14 @@ void Benchmarker::exportToCsv(const std::string &filename) const {
   }
 
   file << "Algorithm,N,MinTime_ms,MaxTime_ms,MeanTime_ms,MedianTime_ms,"
-       << "StdDev_ms,Bandwidth_GBs,PeakBandwidth_GBs\n";
+       << "StdDev_ms,Bandwidth_GBs,PeakBandwidth_GBs,Gflops,PeakGflops\n";
 
   for (const auto &res : results_) {
     file << res.tag << "," << res.n << "," << std::fixed << std::setprecision(6)
          << res.minMs << "," << res.maxMs << "," << res.meanMs << ","
          << res.medianMs << "," << res.stddevMs << "," << std::setprecision(2)
-         << res.getBandwidthGBs() << "," << res.getPeakBandwidthGBs() << "\n";
+         << res.getBandwidthGBs() << "," << res.getPeakBandwidthGBs() << ","
+         << res.getGflops() << "," << res.getPeakGflops() << '\n';
   }
 
   std::cout << ">> Results exported to CSV: " << filename << std::endl;
@@ -85,7 +72,7 @@ std::string Benchmarker::exportToJson() const {
   ss << "{\n";
   ss << "  \"config\": {\n";
   ss << "    \"warmup\": " << config_.warmup << ",\n";
-  ss << "    \"trials\": " << config_.trials << "\n";
+  ss << "    \"trials\": " << config_.trials << '\n';
   ss << "  },\n";
   ss << "  \"results\": [\n";
 
@@ -96,17 +83,21 @@ std::string Benchmarker::exportToJson() const {
     ss << "      \"n\": " << r.n << ",\n";
     ss << "      \"elementSize\": " << r.elementSize << ",\n";
     ss << "      \"memAccessFactor\": " << r.memAccessFactor << ",\n";
-    ss << "      \"minMs\": " << std::fixed << std::setprecision(6) << r.minMs << ",\n";
+    ss << "      \"minMs\": " << std::fixed << std::setprecision(6) << r.minMs
+       << ",\n";
     ss << "      \"maxMs\": " << r.maxMs << ",\n";
     ss << "      \"meanMs\": " << r.meanMs << ",\n";
     ss << "      \"medianMs\": " << r.medianMs << ",\n";
     ss << "      \"stddevMs\": " << r.stddevMs << ",\n";
-    ss << "      \"bandwidthGBs\": " << std::setprecision(2) << r.getBandwidthGBs() << ",\n";
-    ss << "      \"peakBandwidthGBs\": " << r.getPeakBandwidthGBs() << "\n";
+    ss << "      \"bandwidthGBs\": " << std::setprecision(2)
+       << r.getBandwidthGBs() << ",\n";
+    ss << "      \"peakBandwidthGBs\": " << r.getPeakBandwidthGBs() << ",\n";
+    ss << "      \"gflops\": " << r.getGflops() << ",\n";
+    ss << "      \"peakGflops\": " << r.getPeakGflops() << '\n';
     ss << "    }";
     if (i < results_.size() - 1)
       ss << ",";
-    ss << "\n";
+    ss << '\n';
   }
 
   ss << "  ]\n}";
@@ -114,26 +105,19 @@ std::string Benchmarker::exportToJson() const {
 }
 
 void Benchmarker::printSummary() const {
-  std::cout << "\n";
-  std::cout << std::left << std::setw(30) << "Algorithm"
-            << std::right << std::setw(12) << "N"
-            << std::setw(12) << "Mean(ms)"
-            << std::setw(12) << "Min(ms)"
-            << std::setw(12) << "StdDev(ms)"
-            << std::setw(12) << "BW(GB/s)"
-            << "\n";
-  std::cout << std::string(90, '-') << "\n";
+  std::cout << '\n';
+  std::cout << std::left << std::setw(30) << "Algorithm" << std::right
+            << std::setw(14) << "N" << std::setw(12) << "Mean(ms)"
+            << std::setw(12) << "Min(ms)" << std::setw(12) << "BW(GB/s)"
+            << std::setw(12) << "GFLOPS" << '\n';
+  std::cout << std::string(92, '-') << '\n';
 
   for (const auto &r : results_) {
-    std::cout << std::left << std::setw(30) << r.tag
-              << std::right << std::setw(12) << r.n
-              << std::fixed << std::setprecision(4)
-              << std::setw(12) << r.meanMs
-              << std::setw(12) << r.minMs
-              << std::setw(12) << r.stddevMs
-              << std::setprecision(2)
-              << std::setw(12) << r.getBandwidthGBs()
-              << "\n";
+    std::cout << std::left << std::setw(30) << r.tag << std::right
+              << std::setw(14) << r.n << std::fixed << std::setprecision(4)
+              << std::setw(12) << r.meanMs << std::setw(12) << r.minMs
+              << std::setprecision(2) << std::setw(12) << r.getBandwidthGBs()
+              << std::setw(12) << r.getGflops() << '\n';
   }
-  std::cout << "\n";
+  std::cout << '\n';
 }

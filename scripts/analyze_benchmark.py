@@ -29,6 +29,8 @@ def load_benchmark_data(csv_path: Path) -> pd.DataFrame:
         "StdDev_ms": "stddev_ms",
         "Bandwidth_GBs": "bandwidth_gbps",
         "PeakBandwidth_GBs": "peak_bandwidth_gbps",
+        "Gflops": "gflops",
+        "PeakGflops": "peak_gflops",
     }
     df = df.rename(columns=column_mapping)
 
@@ -154,6 +156,66 @@ def plot_bandwidth_vs_size(df: pd.DataFrame, output_dir: Path) -> None:
     plt.close()
 
 
+def plot_gflops_vs_size(df: pd.DataFrame, output_dir: Path) -> None:
+    """Create line chart of GFLOPS vs data size for each kernel type."""
+    # Skip if no GFLOPS data available
+    if "gflops" not in df.columns or df["gflops"].sum() == 0:
+        print("Skipping GFLOPS plot (no GFLOPS data in CSV)")
+        return
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    kernel_types = df["kernel_type"].unique()
+    colors = plt.cm.tab10.colors
+
+    for i, kernel_type in enumerate(kernel_types):
+        kernel_data = df[df["kernel_type"] == kernel_type].sort_values("data_size")
+
+        # Skip if no GFLOPS data for this kernel
+        if kernel_data["gflops"].sum() == 0:
+            continue
+
+        # Plot mean GFLOPS
+        ax.plot(
+            kernel_data["data_size"],
+            kernel_data["gflops"],
+            marker="o",
+            label=f"{kernel_type} (mean)",
+            color=colors[i % len(colors)],
+            linewidth=2,
+            markersize=6,
+        )
+        # Plot peak GFLOPS (lighter)
+        ax.plot(
+            kernel_data["data_size"],
+            kernel_data["peak_gflops"],
+            marker="^",
+            label=f"{kernel_type} (peak)",
+            color=colors[i % len(colors)],
+            linewidth=1,
+            linestyle="--",
+            markersize=4,
+            alpha=0.5,
+        )
+
+    # Add reference line for RTX 3090 FP32 peak (optional)
+    ax.axhline(y=35580, color='red', linestyle=':', alpha=0.3,
+               label='RTX 3090 FP32 Peak (35.6 TFLOPS)')
+
+    ax.set_xlabel("Problem Size (N = M×N×K for GEMM)")
+    ax.set_ylabel("GFLOPS")
+    ax.set_title("Compute Performance vs Problem Size")
+    ax.set_xscale("log")
+    ax.legend(loc="best", fontsize=8, ncol=2)
+    ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    output_path = output_dir / "gflops_vs_size.png"
+    plt.savefig(output_path, dpi=150)
+    print(f"Saved: {output_path}")
+    plt.close()
+
+
 def plot_speedup_chart(df: pd.DataFrame, output_dir: Path) -> None:
     """Create bar chart showing speedup relative to baseline kernel."""
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -249,6 +311,7 @@ def main():
     print("\nGenerating plots...")
     plot_kernel_comparison(df, output_dir)
     plot_bandwidth_vs_size(df, output_dir)
+    plot_gflops_vs_size(df, output_dir)
     plot_speedup_chart(df, output_dir)
     plot_variance_analysis(df, output_dir)
 
