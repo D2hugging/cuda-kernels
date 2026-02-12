@@ -1,40 +1,7 @@
 #include "test_utils.h"
-#include <cmath>
-#include <cstddef>
 #include <iomanip>
-#include <ios>
 #include <iostream>
 #include <random>
-
-bool almostEqual(float a, float b, float epsilon) {
-  return std::fabs(a - b) <= epsilon * std::fmax(std::fabs(a), std::fabs(b));
-}
-
-bool almostEqual(double a, double b, double epsilon) {
-  return std::fabs(a - b) <= epsilon * std::fmax(std::fabs(a), std::fabs(b));
-}
-
-bool arrayEqual(const float *a, const float *b, size_t n, float epsilon) {
-  for (size_t i = 0; i < n; ++i) {
-    if (!almostEqual(a[i], b[i], epsilon)) {
-      std::cerr << "Mismatch at index " << i << ": " << a[i] << " != " << b[i]
-                << " (diff: " << std::fabs(a[i] - b[i]) << ")\n";
-      return false;
-    }
-  }
-  return true;
-}
-
-bool arrayEqual(const double *a, const double *b, size_t n, double epsilon) {
-  for (size_t i = 0; i < n; ++i) {
-    if (!almostEqual(a[i], b[i], epsilon)) {
-      std::cerr << "Mismatch at index " << i << ": " << a[i] << " != " << b[i]
-                << " (diff: " << std::fabs(a[i] - b[i]) << ")\n";
-      return false;
-    }
-  }
-  return true;
-}
 
 void fillRandom(float *data, size_t n, float minVal, float maxVal) {
   std::random_device rd;

@@ -28,12 +28,19 @@ void cpuGemm(const float *h_A, const float *h_B, float *h_C, int M, int N,
 static int g_verificationFailures = 0;
 
 bool verifyGemm(const float *gpu_out, const float *cpu_out, int M, int N,
-                float epsilon = 1e-5f) {
-  if (arrayEqual(gpu_out, cpu_out, M * N, epsilon)) {
-    std::cout << "Verification PASSED\n";
+                int K) {
+  // Use NumPy-style tolerances: |a-b| <= atol + rtol*max(|a|,|b|)
+  // Scale absolute tolerance with sqrt(K) to account for accumulation error
+  float rtol = 1e-4f;  // 0.01% relative error
+  float atol = 1e-5f * std::sqrt(static_cast<float>(K));
+
+  if (arrayEqualTol(gpu_out, cpu_out, M * N, rtol, atol)) {
+    std::cout << "Verification PASSED (rtol=" << rtol
+              << ", atol=" << atol << ")\n";
     return true;
   } else {
-    std::cerr << "Verification FAILED\n";
+    std::cerr << "Verification FAILED (rtol=" << rtol
+              << ", atol=" << atol << ")\n";
     g_verificationFailures++;
     return false;
   }
@@ -124,7 +131,7 @@ int main() {
           }
           cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float),
                      cudaMemcpyDeviceToHost);
-          return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, 1e-3f);
+          return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, tc.K);
         },
         2,      // memAccessFactor (for bandwidth calculation)
         flops); // totalFlops = 2 * M * N * K
@@ -142,7 +149,7 @@ int main() {
           }
           cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float),
                      cudaMemcpyDeviceToHost);
-          return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, 1e-3f);
+          return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, tc.K);
         },
         2,      // memAccessFactor
         flops); // totalFlops = 2 * M * N * K
@@ -168,7 +175,7 @@ int main() {
           }
           cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float),
                      cudaMemcpyDeviceToHost);
-          return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, 1e-3f);
+          return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, tc.K);
         },
         2,      // memAccessFactor
         flops); // totalFlops = 2 * M * N * K
