@@ -9,8 +9,7 @@
 #include <vector>
 
 // CPU reference implementation
-static void cpuGemm(const float *h_A, const float *h_B, float *h_C, int M,
-                    int N, int K) {
+static void cpuGemm(const float *h_A, const float *h_B, float *h_C, int M, int N, int K) {
   for (int i = 0; i < M; ++i) {
     for (int j = 0; j < N; ++j) {
       float sum = 0.0f;
@@ -23,17 +22,15 @@ static void cpuGemm(const float *h_A, const float *h_B, float *h_C, int M,
 }
 
 // Helper to run a GEMM kernel and get the result
-static void runGEMMKernel(const float *h_A, const float *h_B, float *h_C_gpu,
-                          int M, int N, int K, const char *kernelName) {
+static void runGEMMKernel(const float *h_A, const float *h_B, float *h_C_gpu, int M, int N, int K,
+                          const char *kernelName) {
   float *d_A, *d_B, *d_C;
   CUDA_CHECK(cudaMalloc(&d_A, M * K * sizeof(float)));
   CUDA_CHECK(cudaMalloc(&d_B, K * N * sizeof(float)));
   CUDA_CHECK(cudaMalloc(&d_C, M * N * sizeof(float)));
 
-  CUDA_CHECK(
-      cudaMemcpy(d_A, h_A, M * K * sizeof(float), cudaMemcpyHostToDevice));
-  CUDA_CHECK(
-      cudaMemcpy(d_B, h_B, K * N * sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_A, h_A, M * K * sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_B, h_B, K * N * sizeof(float), cudaMemcpyHostToDevice));
 
   // Launch appropriate kernel based on name
   if (strcmp(kernelName, "naive") == 0) {
@@ -52,8 +49,7 @@ static void runGEMMKernel(const float *h_A, const float *h_B, float *h_C_gpu,
     gemmRegisterBlockingKernel<<<grid, block>>>(d_A, d_B, d_C, M, N, K);
   }
 
-  CUDA_CHECK(
-      cudaMemcpy(h_C_gpu, d_C, M * N * sizeof(float), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(h_C_gpu, d_C, M * N * sizeof(float), cudaMemcpyDeviceToHost));
 
   cudaFree(d_A);
   cudaFree(d_B);
@@ -77,8 +73,7 @@ static bool testSingleElement() {
 static bool testIdentityMatrix() {
   const int N = 4;
   std::vector<float> A = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-  std::vector<float> B = {1, 2,  3,  4,  5,  6,  7,  8,
-                          9, 10, 11, 12, 13, 14, 15, 16};
+  std::vector<float> B = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
   std::vector<float> C_gpu(N * N);
 
   runGEMMKernel(A.data(), B.data(), C_gpu.data(), N, N, N, "tiled");

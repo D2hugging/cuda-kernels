@@ -11,8 +11,7 @@
 
 constexpr size_t VERIFY_THRESHOLD = 2048; // Skip CPU verification above this
 
-void cpuGemm(const float *h_A, const float *h_B, float *h_C, int M, int N,
-             int K) {
+void cpuGemm(const float *h_A, const float *h_B, float *h_C, int M, int N, int K) {
   for (int i = 0; i < M; ++i) {
     for (int j = 0; j < N; ++j) {
       float sum = 0.0f;
@@ -27,20 +26,17 @@ void cpuGemm(const float *h_A, const float *h_B, float *h_C, int M, int N,
 // Track verification failures for exit code
 static int g_verificationFailures = 0;
 
-bool verifyGemm(const float *gpu_out, const float *cpu_out, int M, int N,
-                int K) {
+bool verifyGemm(const float *gpu_out, const float *cpu_out, int M, int N, int K) {
   // Use NumPy-style tolerances: |a-b| <= atol + rtol*max(|a|,|b|)
   // Scale absolute tolerance with sqrt(K) to account for accumulation error
-  float rtol = 1e-4f;  // 0.01% relative error
+  float rtol = 1e-4f; // 0.01% relative error
   float atol = 1e-5f * std::sqrt(static_cast<float>(K));
 
   if (arrayEqualTol(gpu_out, cpu_out, M * N, rtol, atol)) {
-    std::cout << "Verification PASSED (rtol=" << rtol
-              << ", atol=" << atol << ")\n";
+    std::cout << "Verification PASSED (rtol=" << rtol << ", atol=" << atol << ")\n";
     return true;
   } else {
-    std::cerr << "Verification FAILED (rtol=" << rtol
-              << ", atol=" << atol << ")\n";
+    std::cerr << "Verification FAILED (rtol=" << rtol << ", atol=" << atol << ")\n";
     g_verificationFailures++;
     return false;
   }
@@ -58,14 +54,9 @@ int main() {
 
   // test data dims
   std::vector<MatrixSize> test_cases = {
-      {512, 512, 512, "512x512x512"},
-      {512, 512, 1024, "512x512x1024"},
-      {1024, 1024, 512, "1024x1024x512"},
-      {1024, 1024, 1024, "1024x1024x1024"},
-      {2048, 2048, 2048, "2048x2048x2048"},
-      {3072, 3072, 3072, "3072x3072x3072"},
-      {4096, 4096, 4096, "4096x4096x4096"},
-      {8192, 8192, 8192, "8192x8192x8192"},
+      {512, 512, 512, "512x512x512"},       {512, 512, 1024, "512x512x1024"},     {1024, 1024, 512, "1024x1024x512"},
+      {1024, 1024, 1024, "1024x1024x1024"}, {2048, 2048, 2048, "2048x2048x2048"}, {3072, 3072, 3072, "3072x3072x3072"},
+      {4096, 4096, 4096, "4096x4096x4096"}, {8192, 8192, 8192, "8192x8192x8192"},
   };
 
   // Configure benchmarker: warmup 10, trials 5
@@ -75,11 +66,8 @@ int main() {
   Benchmarker bench(config);
 
   for (const auto &tc : test_cases) {
-    std::cout << "\n>>> Testing matrix size: " << tc.M << "x" << tc.N << "x"
-              << tc.K << " ("
-              << ((tc.M * tc.K + tc.K * tc.N + tc.M * tc.N) * sizeof(float) /
-                  (1024 * 1024))
-              << " MB data)" << '\n';
+    std::cout << "\n>>> Testing matrix size: " << tc.M << "x" << tc.N << "x" << tc.K << " ("
+              << ((tc.M * tc.K + tc.K * tc.N + tc.M * tc.N) * sizeof(float) / (1024 * 1024)) << " MB data)" << '\n';
 
     // cpu
     std::vector<float> h_A(tc.M * tc.K);
@@ -90,8 +78,7 @@ int main() {
     fillRandom(h_A.data(), tc.M * tc.K, -1.0f, 1.0f);
     fillRandom(h_B.data(), tc.K * tc.N, -1.0f, 1.0f);
 
-    bool shouldVerify = (tc.M < VERIFY_THRESHOLD && tc.N < VERIFY_THRESHOLD &&
-                         tc.K < VERIFY_THRESHOLD);
+    bool shouldVerify = (tc.M < VERIFY_THRESHOLD && tc.N < VERIFY_THRESHOLD && tc.K < VERIFY_THRESHOLD);
 
     if (shouldVerify) {
       cpuGemm(h_A.data(), h_B.data(), h_C.data(), tc.M, tc.N, tc.K);
@@ -105,10 +92,8 @@ int main() {
     CUDA_CHECK(cudaMalloc(&d_C, tc.M * tc.N * sizeof(float)));
 
     // copy data to device
-    CUDA_CHECK(cudaMemcpy(d_A, h_A.data(), tc.M * tc.K * sizeof(float),
-                          cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_B, h_B.data(), tc.K * tc.N * sizeof(float),
-                          cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_A, h_A.data(), tc.M * tc.K * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_B, h_B.data(), tc.K * tc.N * sizeof(float), cudaMemcpyHostToDevice));
 
     dim3 block(TILE_SIZE, TILE_SIZE);
 
@@ -121,16 +106,13 @@ int main() {
     // naive kernel
     bench.run<float>(
         "Naive_" + tc.label, (size_t)tc.M * tc.N, // n = output elements
-        [&]() {
-          gemmNaiveKernel<<<grid, block>>>(d_A, d_B, d_C, tc.M, tc.N, tc.K);
-        },
+        [&]() { gemmNaiveKernel<<<grid, block>>>(d_A, d_B, d_C, tc.M, tc.N, tc.K); },
         [&]() -> bool {
           if (!shouldVerify) {
             std::cout << "Verification SKIPPED (large matrix)\n";
             return true;
           }
-          cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float),
-                     cudaMemcpyDeviceToHost);
+          cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float), cudaMemcpyDeviceToHost);
           return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, tc.K);
         },
         2,      // memAccessFactor (for bandwidth calculation)
@@ -139,24 +121,19 @@ int main() {
     // tiled kernel with shared memory
     bench.run<float>(
         "Tiled_" + tc.label, (size_t)tc.M * tc.N, // n = output elements
-        [&]() {
-          gemmTiledKernel<<<grid, block>>>(d_A, d_B, d_C, tc.M, tc.N, tc.K);
-        },
+        [&]() { gemmTiledKernel<<<grid, block>>>(d_A, d_B, d_C, tc.M, tc.N, tc.K); },
         [&]() -> bool {
           if (!shouldVerify) {
             std::cout << "Verification SKIPPED (large matrix)\n";
             return true;
           }
-          cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float),
-                     cudaMemcpyDeviceToHost);
+          cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float), cudaMemcpyDeviceToHost);
           return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, tc.K);
         },
         2,      // memAccessFactor
         flops); // totalFlops = 2 * M * N * K
 
     // register blocking kernel with shared memory
-
-    // Register blocking kernel
     constexpr int threadsM = BM / TM;  // 32/4 = 8
     constexpr int threadsN = BN / TN;  // 32/4 = 8
     dim3 blockReg(threadsN, threadsM); // 8×8 = 64 threads
@@ -164,17 +141,29 @@ int main() {
     bench.run<float>(
         "RegisterBlocking_" + tc.label,
         (size_t)tc.M * tc.N, // n = output elements
-        [&]() {
-          gemmRegisterBlockingKernel<<<gridReg, blockReg>>>(d_A, d_B, d_C, tc.M,
-                                                            tc.N, tc.K);
-        },
+        [&]() { gemmRegisterBlockingKernel<<<gridReg, blockReg>>>(d_A, d_B, d_C, tc.M, tc.N, tc.K); },
         [&]() -> bool {
           if (!shouldVerify) {
             std::cout << "Verification SKIPPED (large matrix)\n";
             return true;
           }
-          cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float),
-                     cudaMemcpyDeviceToHost);
+          cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float), cudaMemcpyDeviceToHost);
+          return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, tc.K);
+        },
+        2,      // memAccessFactor
+        flops); // totalFlops = 2 * M * N * K
+
+    // register blocking kernel with shared memory
+    bench.run<float>(
+        "RegBlockingVectorized_" + tc.label,
+        (size_t)tc.M * tc.N, // n = output elements
+        [&]() { gemmRegisterBlockingKernel<<<gridReg, blockReg>>>(d_A, d_B, d_C, tc.M, tc.N, tc.K); },
+        [&]() -> bool {
+          if (!shouldVerify) {
+            std::cout << "Verification SKIPPED (large matrix)\n";
+            return true;
+          }
+          cudaMemcpy(h_C_gpu.data(), d_C, tc.M * tc.N * sizeof(float), cudaMemcpyDeviceToHost);
           return verifyGemm(h_C_gpu.data(), h_C.data(), tc.M, tc.N, tc.K);
         },
         2,      // memAccessFactor
@@ -194,8 +183,7 @@ int main() {
 
   // Return non-zero exit code if any verification failed
   if (g_verificationFailures > 0) {
-    std::cerr << "\nTotal verification failures: " << g_verificationFailures
-              << '\n';
+    std::cerr << "\nTotal verification failures: " << g_verificationFailures << '\n';
     return 1;
   }
 
